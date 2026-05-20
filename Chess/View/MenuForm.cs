@@ -53,7 +53,7 @@ namespace SuperpositionChess.View
 
             _botDifficultyPanel.Location = new Point(
                 (ClientSize.Width - _botDifficultyPanel.Width) / 2,
-                (ClientSize.Height - _botDifficultyPanel.Height) / 2
+                Math.Max(140, (ClientSize.Height - _botDifficultyPanel.Height) / 2)
             );
             _infoPanel.Location = new Point(
                 (ClientSize.Width - _infoPanel.Width) / 2,
@@ -429,7 +429,7 @@ namespace SuperpositionChess.View
         {
             _botDifficultyPanel = new Panel
             {
-                Size = new Size(350, 350),
+                Size = new Size(350, 410),
                 Location = new Point((this.ClientSize.Width - 350) / 2, 180),
                 BackColor = Color.FromArgb(35, 35, 35),
                 Visible = false
@@ -455,11 +455,16 @@ namespace SuperpositionChess.View
             };
             _botDifficultyPanel.Controls.Add(titleLabel);
 
-            string[] difficulties = { "Лёгкий", "Средний", "Сложный" };
-            BotDifficulty[] difficultyValues = { BotDifficulty.Easy, BotDifficulty.Medium, BotDifficulty.Hard };
-            Color[] difficultyColors = { Color.FromArgb(100, 200, 100), Color.FromArgb(255, 200, 50), Color.FromArgb(255, 80, 80) };
+            string[] difficulties = { "Лёгкий", "Средний", "Сложный", "Читер" };
+            BotDifficulty[] difficultyValues = { BotDifficulty.Easy, BotDifficulty.Medium, BotDifficulty.Hard, BotDifficulty.Cheater };
+            Color[] difficultyColors = {
+        Color.FromArgb(100, 200, 100),
+        Color.FromArgb(255, 200, 50),
+        Color.FromArgb(255, 80, 80),
+        Color.FromArgb(200, 50, 200)   // Фиолетовый для читера
+    };
 
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < 4; i++)
             {
                 Button diffButton = new Button
                 {
@@ -493,7 +498,7 @@ namespace SuperpositionChess.View
             {
                 Text = "Назад",
                 Size = new Size(100, 35),
-                Location = new Point(125, 300),
+                Location = new Point(125, 340),
                 FlatStyle = FlatStyle.Flat,
                 Font = new Font("Segoe UI", 10, FontStyle.Bold),
                 ForeColor = Color.FromArgb(200, 200, 200),

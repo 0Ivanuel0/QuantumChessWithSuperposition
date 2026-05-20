@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 
 namespace Chess.Model
 {
@@ -636,6 +637,92 @@ namespace Chess.Model
 
             piece = null;
             return false;
+        }
+
+        public string Serialize()
+        {
+            var data = new List<List<string?>>();
+            for (int row = 0; row < Grid.GetLength(0); row++)
+            {
+                var rowData = new List<string?>();
+                for (int col = 0; col < Grid.GetLength(1); col++)
+                {
+                    var piece = Grid[row, col];
+                    if (piece == null) rowData.Add(null);
+                    else rowData.Add($"{(int)piece.Type},{(int)piece.Color},{(int)piece.State},{(piece.HasMoved ? 1 : 0)}");
+                }
+                data.Add(rowData);
+            }
+
+            var state = new
+            {
+                grid = data,
+                enPassantRow = EnPassantRow,
+                enPassantCol = EnPassantColumn,
+                whiteKingside = WhiteCanCastleKingside,
+                whiteQueenside = WhiteCanCastleQueenside,
+                blackKingside = BlackCanCastleKingside,
+                blackQueenside = BlackCanCastleQueenside,
+                currentPhantoms = CurrentPhantoms.Select(p => new { p.row, p.column }).ToList(),
+                superpositionOwner = SuperpositionOwner == null ? null : ((int)SuperpositionOwner.Value).ToString(),
+                realPieceRow = RealPiecePosition?.row ?? -1,
+                realPieceCol = RealPiecePosition?.column ?? -1
+            };
+
+            return JsonSerializer.Serialize(state);
+        }
+
+        public void Deserialize(string json)
+        {
+            var state = JsonSerializer.Deserialize<JsonElement>(json);
+
+            // Очистка
+            for (int r = 0; r < Grid.GetLength(0); r++)
+                for (int c = 0; c < Grid.GetLength(1); c++)
+                    Grid[r, c] = null;
+
+            CurrentPhantoms.Clear();
+
+            // Восстановление фигур
+            var grid = state.GetProperty("grid");
+            for (int row = 0; row < grid.GetArrayLength(); row++)
+            {
+                var rowData = grid[row];
+                for (int col = 0; col < rowData.GetArrayLength(); col++)
+                {
+                    var cell = rowData[col];
+                    if (cell.ValueKind == JsonValueKind.Null) continue;
+
+                    var parts = cell.GetString()!.Split(',');
+                    var type = (PieceType)int.Parse(parts[0]);
+                    var color = (PieceColor)int.Parse(parts[1]);
+                    var pieceState = (PieceState)int.Parse(parts[2]);
+                    var hasMoved = int.Parse(parts[3]) == 1;
+
+                    Grid[row, col] = new Piece(type, color)
+                    {
+                        State = pieceState,
+                        HasMoved = hasMoved
+                    };
+
+                    if (pieceState == PieceState.Phantom)
+                        CurrentPhantoms.Add((row, col));
+                }
+            }
+
+            EnPassantRow = state.GetProperty("enPassantRow").GetInt32();
+            EnPassantColumn = state.GetProperty("enPassantCol").GetInt32();
+            WhiteCanCastleKingside = state.GetProperty("whiteKingside").GetBoolean();
+            WhiteCanCastleQueenside = state.GetProperty("whiteQueenside").GetBoolean();
+            BlackCanCastleKingside = state.GetProperty("blackKingside").GetBoolean();
+            BlackCanCastleQueenside = state.GetProperty("blackQueenside").GetBoolean();
+
+            var owner = state.GetProperty("superpositionOwner");
+            SuperpositionOwner = owner.ValueKind == JsonValueKind.Null ? null : (PieceColor)int.Parse(owner.GetString()!);
+
+            int rpRow = state.GetProperty("realPieceRow").GetInt32();
+            int rpCol = state.GetProperty("realPieceCol").GetInt32();
+            RealPiecePosition = rpRow >= 0 ? (rpRow, rpCol) : null;
         }
     }
 }

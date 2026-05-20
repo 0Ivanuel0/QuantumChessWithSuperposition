@@ -7,7 +7,8 @@ namespace Chess.AI
     {
         Easy,
         Medium,
-        Hard
+        Hard,
+        Cheater
     }
 
     public class QuantumBot
@@ -30,7 +31,6 @@ namespace Chess.AI
                 return;
 
             var allMoves = GetAllPossibleMoves();
-
             if (allMoves.Count == 0) return;
 
             Move? bestMove = null;
@@ -47,10 +47,12 @@ namespace Chess.AI
                 case BotDifficulty.Hard:
                     (fromRow, fromCol, bestMove) = GetHardMove(allMoves);
                     break;
+                case BotDifficulty.Cheater:
+                    (fromRow, fromCol, bestMove) = GetCheaterMove(allMoves);
+                    break;
             }
 
             if (bestMove == null) return;
-
             _controller.TryMakeMove(fromRow, fromCol, bestMove.ToRow, bestMove.ToColumn);
             _controller.ConfirmMove();
         }
@@ -58,7 +60,6 @@ namespace Chess.AI
         private List<(int fromRow, int fromCol, Move move)> GetAllPossibleMoves()
         {
             var moves = new List<(int, int, Move)>();
-
             for (int row = 0; row < 8; row++)
             {
                 for (int col = 0; col < 8; col++)
@@ -73,28 +74,34 @@ namespace Chess.AI
                     }
                 }
             }
-
             return moves;
         }
 
-        // Лёгкий: совсем случайный, даже не проверяет что ход безопасный
+        // ==================== ЛЁГКИЙ ====================
         private (int, int, Move) GetEasyMove(List<(int fromRow, int fromCol, Move move)> moves)
         {
-            // 30% шанс сделать плохой ход (случайный)
-            var chosen = moves[_random.Next(moves.Count)];
-            return chosen;
+            // Приоритет: взятие короля > взятие фигуры > случайный
+            var kingCapture = moves.FirstOrDefault(m => m.move.CapturedPiece?.Type == PieceType.King);
+            if (kingCapture != default) return kingCapture;
+
+            var captures = moves.Where(m => m.move.CapturedPiece != null).ToList();
+            if (captures.Count > 0 && _random.NextDouble() < 0.5)
+                return captures[_random.Next(captures.Count)];
+
+            return moves[_random.Next(moves.Count)];
         }
 
-        // Средний: атакует фантомов (может попасть в реальную), создаёт суперпозицию, берёт короля
+        // ==================== СРЕДНИЙ ====================
         private (int, int, Move) GetMediumMove(List<(int fromRow, int fromCol, Move move)> moves)
         {
-            var scoredMoves = moves.Select(m => (m.fromRow, m.fromCol, m.move, score: ScoreMoveMedium(m.move))).ToList();
+            var scoredMoves = new List<(int fromRow, int fromCol, Move move, float score)>();
+            foreach (var m in moves)
+                scoredMoves.Add((m.fromRow, m.fromCol, m.move, ScoreMoveMedium(m.move)));
 
-            // Добавляем случайность ±20%
             for (int i = 0; i < scoredMoves.Count; i++)
             {
                 var m = scoredMoves[i];
-                m.score += (float)(_random.NextDouble() * 0.4 - 0.2) * m.score;
+                m.score += (float)(_random.NextDouble() * 0.3 - 0.15) * Math.Abs(m.score);
                 scoredMoves[i] = m;
             }
 
@@ -106,24 +113,55 @@ namespace Chess.AI
         {
             float score = 0;
 
+            // Взятие
             if (move.CapturedPiece != null)
             {
-                score += GetPieceValue(move.CapturedPiece) * 0.5f;
+                if (move.CapturedPiece.Type == PieceType.King)
+                    return 10000;
+                score += GetPieceValue(move.CapturedPiece) * 2f;
             }
 
-            if (move.IsPromotion)
-                score += 5;
+            // Суперпозиция
+            var nonContact = _controller.Board.GetNonContactMoves(move.FromRow, move.FromColumn, _botColor);
+            if (nonContact.Any(m => m.ToRow == move.ToRow && m.ToColumn == move.ToColumn))
+                score += nonContact.Count * 0.5f;
 
-            // Добавляем много случайности (±50%)
-            score += (float)(_random.NextDouble() - 0.5) * 4;
+            // Продвижение пешки
+            if (move.MovedPiece.Type == PieceType.Pawn)
+                score += (7 - move.ToRow) * 0.2f;
+
+            // Центр доски
+            float centerDist = Math.Abs(3.5f - move.ToColumn);
+            score += (3.5f - centerDist) * 0.1f;
+
+            // Ближе к вражескому королю
+            var enemyKing = FindEnemyKing();
+            if (enemyKing.HasValue)
+            {
+                float oldDist = Distance(move.FromRow, move.FromColumn, enemyKing.Value.row, enemyKing.Value.col);
+                float newDist = Distance(move.ToRow, move.ToColumn, enemyKing.Value.row, enemyKing.Value.col);
+                score += (oldDist - newDist) * 0.15f;
+            }
+
+            if (move.IsPromotion) score += 8;
+            if (move.IsCastling) score += 2;
 
             return Math.Max(0, score);
         }
 
-        // Сложный: просчитывает вероятности, оценивает позиции врага
+        // ==================== СЛОЖНЫЙ ====================
         private (int, int, Move) GetHardMove(List<(int fromRow, int fromCol, Move move)> moves)
         {
-            var scoredMoves = moves.Select(m => (m.fromRow, m.fromCol, m.move, score: ScoreMoveHard(m.move))).ToList();
+            var scoredMoves = new List<(int fromRow, int fromCol, Move move, float score)>();
+            foreach (var m in moves)
+                scoredMoves.Add((m.fromRow, m.fromCol, m.move, ScoreMoveHard(m.move)));
+
+            for (int i = 0; i < scoredMoves.Count; i++)
+            {
+                var m = scoredMoves[i];
+                m.score += (float)(_random.NextDouble() * 0.2 - 0.1) * Math.Abs(m.score);
+                scoredMoves[i] = m;
+            }
 
             var best = scoredMoves.OrderByDescending(m => m.score).First();
             return (best.fromRow, best.fromCol, best.move);
@@ -133,34 +171,152 @@ namespace Chess.AI
         {
             float score = ScoreMoveMedium(move);
 
-            // Оценка позиции после хода (глубина 1)
+            // Симуляция хода
             var boardClone = _controller.Board.Clone();
             boardClone.ClearSuperposition();
             var resolvedMove = boardClone.ResolveMove(move);
             boardClone.MakeMove(resolvedMove);
 
-            // Проверяем, не подставили ли короля
-            bool kingSafe = true;
+            // Не подставили ли короля
             var myKing = FindKingInBoard(boardClone, _botColor);
             if (myKing.HasValue)
             {
-                kingSafe = !IsCellAttackedInBoard(boardClone, myKing.Value.row, myKing.Value.col, _botColor);
+                if (IsCellAttackedInBoard(boardClone, myKing.Value.row, myKing.Value.col, _botColor))
+                    score -= 100;
             }
 
-            if (!kingSafe)
-                score -= 50;
-
-            // Бонус за атаку вражеского короля
-            var enemyKing = FindKingInBoard(boardClone, _botColor == PieceColor.White ? PieceColor.Black : PieceColor.White);
+            // Атакуем ли вражеского короля
+            var enemyKing = FindKingInBoard(boardClone, OpponentColor());
             if (enemyKing.HasValue)
             {
-                if (IsCellAttackedInBoard(boardClone, enemyKing.Value.row, enemyKing.Value.col,
-                    _botColor == PieceColor.White ? PieceColor.Black : PieceColor.White))
-                    score += 20; // Шах!
+                if (IsCellAttackedInBoard(boardClone, enemyKing.Value.row, enemyKing.Value.col, OpponentColor()))
+                    score += 30;
+
+                // Ограничиваем подвижность вражеского короля
+                int enemyMoves = boardClone.GetValidMoves(enemyKing.Value.row, enemyKing.Value.col, OpponentColor()).Count;
+                score += (8 - enemyMoves) * 2;
+            }
+
+            // Оцениваем ответные угрозы
+            score += EvaluateOpponentThreats(boardClone);
+
+            // Развитие в начале игры
+            if (!move.MovedPiece.HasMoved && move.MovedPiece.Type == PieceType.Knight)
+                score += 1;
+            if (!move.MovedPiece.HasMoved && move.MovedPiece.Type == PieceType.Bishop)
+                score += 1.5f;
+
+            return score;
+        }
+
+        private float EvaluateOpponentThreats(Board board)
+        {
+            float threats = 0;
+            var oppColor = OpponentColor();
+
+            for (int r = 0; r < 8; r++)
+            {
+                for (int c = 0; c < 8; c++)
+                {
+                    if (board.TryGetPiece(r, c, out var piece) &&
+                        piece!.Color == oppColor &&
+                        piece.State == PieceState.Real)
+                    {
+                        var oppMoves = board.GetValidMoves(r, c, oppColor);
+                        foreach (var m in oppMoves)
+                        {
+                            if (m.CapturedPiece != null)
+                                threats += GetPieceValue(m.CapturedPiece) * 0.3f;
+                        }
+                    }
+                }
+            }
+
+            return -threats;
+        }
+
+        // ==================== ЧИТЕР ====================
+        private (int, int, Move) GetCheaterMove(List<(int fromRow, int fromCol, Move move)> moves)
+        {
+            var scoredMoves = new List<(int fromRow, int fromCol, Move move, float score)>();
+            foreach (var m in moves)
+                scoredMoves.Add((m.fromRow, m.fromCol, m.move, ScoreCheaterMove(m.move)));
+
+            var best = scoredMoves.OrderByDescending(m => m.score).First();
+            return (best.fromRow, best.fromCol, best.move);
+        }
+
+        private float ScoreCheaterMove(Move move)
+        {
+            float score = ScoreMoveHard(move);
+
+            // Читер точно знает, где реальная фигура среди фантомов
+            // Он никогда не бьёт фантомов (если это не единственный ход)
+            if (move.CapturedPiece != null && move.CapturedPiece.State == PieceState.Phantom)
+            {
+                bool isRealPhantom = _controller.Board.RealPiecePosition.HasValue &&
+                    _controller.Board.RealPiecePosition.Value.row == move.ToRow &&
+                    _controller.Board.RealPiecePosition.Value.column == move.ToColumn;
+
+                if (isRealPhantom)
+                    score += GetPieceValue(move.CapturedPiece) * 3; // Знает что это реальная — супер-приоритет
+                else
+                    score -= GetPieceValue(move.CapturedPiece) * 0.5f; // Знает что пустышка — не хочет бить
+            }
+
+            // Читер знает, где реальный король врага
+            var realKing = FindRealEnemyKing();
+            if (realKing.HasValue)
+            {
+                float dist = Distance(move.ToRow, move.ToColumn, realKing.Value.row, realKing.Value.col);
+                score += (8 - dist) * 2; // Максимально приближается к реальному королю
+            }
+
+            // Читер избегает суперпозиций врага (знает где реальные фигуры)
+            if (_controller.Board.SuperpositionOwner == OpponentColor())
+            {
+                // Не ходит на клетки, где может быть реальная фигура врага
+                if (_controller.Board.RealPiecePosition.HasValue &&
+                    _controller.Board.RealPiecePosition.Value.row == move.ToRow &&
+                    _controller.Board.RealPiecePosition.Value.column == move.ToColumn)
+                {
+                    score -= 50; // Сильно избегает столкновения с реальной фигурой
+                }
             }
 
             return score;
         }
+
+        private (int row, int col)? FindRealEnemyKing()
+        {
+            var oppColor = OpponentColor();
+            for (int r = 0; r < 8; r++)
+            {
+                for (int c = 0; c < 8; c++)
+                {
+                    if (_controller.Board.TryGetPiece(r, c, out var piece) &&
+                        piece!.Type == PieceType.King &&
+                        piece.Color == oppColor &&
+                        piece.State == PieceState.Real)
+                        return (r, c);
+                }
+            }
+
+            // Если король в суперпозиции — читер знает где он
+            if (_controller.Board.SuperpositionOwner == oppColor &&
+                _controller.Board.RealPiecePosition.HasValue)
+            {
+                var (r, c) = _controller.Board.RealPiecePosition.Value;
+                var piece = _controller.Board.Grid[r, c];
+                if (piece?.Type == PieceType.King)
+                    return (r, c);
+            }
+
+            return null;
+        }
+
+        // ==================== ВСПОМОГАТЕЛЬНЫЕ ====================
+        private PieceColor OpponentColor() => _botColor == PieceColor.White ? PieceColor.Black : PieceColor.White;
 
         private float GetPieceValue(Piece piece)
         {
@@ -178,8 +334,7 @@ namespace Chess.AI
 
         private (int row, int col)? FindEnemyKing()
         {
-            var enemyColor = _botColor == PieceColor.White ? PieceColor.Black : PieceColor.White;
-            return FindKingInBoard(_controller.Board, enemyColor);
+            return FindKingInBoard(_controller.Board, OpponentColor());
         }
 
         private (int row, int col)? FindKingInBoard(Board board, PieceColor color)
@@ -199,7 +354,6 @@ namespace Chess.AI
         private bool IsCellAttackedInBoard(Board board, int row, int col, PieceColor defenderColor)
         {
             var attackerColor = defenderColor == PieceColor.White ? PieceColor.Black : PieceColor.White;
-
             for (int r = 0; r < 8; r++)
                 for (int c = 0; c < 8; c++)
                 {
@@ -215,9 +369,6 @@ namespace Chess.AI
             return false;
         }
 
-        private float Distance(int r1, int c1, int r2, int c2)
-        {
-            return Math.Abs(r1 - r2) + Math.Abs(c1 - c2);
-        }
+        private float Distance(int r1, int c1, int r2, int c2) => Math.Abs(r1 - r2) + Math.Abs(c1 - c2);
     }
 }

@@ -101,15 +101,11 @@ namespace SuperpositionChess.Controller
         {
             if (!IsPendingConfirmation || _pendingMove == null || _boardBeforeMove == null) return;
 
-            // Откатываем ход и суперпозицию
             Board = _boardBeforeMove.Clone();
-
-            // Заново: очистка, резолв, выполнение
             Board.ClearSuperposition();
             var resolvedMove = Board.ResolveMove(_pendingMove);
             Board.MakeMove(resolvedMove);
 
-            // Суперпозиция только если не было столкновения
             if (resolvedMove.ToRow == _pendingToRow && resolvedMove.ToColumn == _pendingToColumn &&
                 _pendingNonContactMoves != null &&
                 _pendingNonContactMoves.Any(m => m.ToRow == resolvedMove.ToRow && m.ToColumn == resolvedMove.ToColumn))
@@ -118,11 +114,12 @@ namespace SuperpositionChess.Controller
             LastMove = resolvedMove;
             IsPendingConfirmation = false;
 
+            // Победитель — тот, кто сейчас ходил (CurrentPlayer ещё не переключен)
             var opponent = CurrentPlayer == PieceColor.White ? PieceColor.Black : PieceColor.White;
             if (Board.IsKingCaptured(opponent))
             {
                 IsGameOver = true;
-                GameResult = $"Победили {CurrentPlayer}!";
+                GameResult = CurrentPlayer == PieceColor.White ? "БЕЛЫЕ ПОБЕДИЛИ!" : "ЧЁРНЫЕ ПОБЕДИЛИ!";
                 OnGameOver?.Invoke(GameResult);
                 OnGameStateChanged?.Invoke();
                 return;

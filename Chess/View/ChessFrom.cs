@@ -46,6 +46,8 @@ namespace SuperpositionChess.View
         private bool _isWhitePerspective = true;
         private bool _isWhitePlayer;
 
+        private bool _iWon = false;
+
         private const int BoardSize = 8;
         private int SquareSize;
         private int BoardOffsetX;
@@ -336,8 +338,13 @@ namespace SuperpositionChess.View
             {
                 if (_controller.IsGameOver)
                 {
-                    turn = _controller.GameResult;
-                    titleColor = Color.FromArgb(255, 60, 60);
+                    turn = _iWon ? "ПОБЕДА!" : "ПОРАЖЕНИЕ";
+                    titleColor = _iWon ? Color.FromArgb(100, 255, 100) : Color.FromArgb(255, 60, 60);
+                }
+                else if (_controller.IsPendingConfirmation)
+                {
+                    turn = "ПОДТВЕРДИТЕ ХОД";
+                    titleColor = Color.FromArgb(100, 255, 100);
                 }
                 else
                 {
@@ -353,20 +360,33 @@ namespace SuperpositionChess.View
             }
 
             if (_bot != null)
-                turn = _controller.CurrentPlayer == PieceColor.White ? "ВАШ ХОД" : "ХОД БОТА";
-            else
-                turn = _controller.CurrentPlayer == PieceColor.White ? "ХОД БЕЛЫХ" : "ХОД ЧЁРНЫХ";
+            {
+                if (_controller.IsGameOver)
+                {
+                    turn = _iWon ? "ВЫ ПОБЕДИЛИ!" : "ВЫ ПРОИГРАЛИ";
+                    titleColor = _iWon ? Color.FromArgb(100, 255, 100) : Color.FromArgb(255, 60, 60);
+                }
+                else
+                {
+                    turn = _controller.CurrentPlayer == PieceColor.White ? "ВАШ ХОД" : "ХОД БОТА";
+                    titleColor = _controller.CurrentPlayer == PieceColor.White ? Color.White : Color.FromArgb(180, 180, 180);
+                }
 
+                _titleLabel.Text = turn;
+                _titleLabel.ForeColor = titleColor;
+                return;
+            }
+
+            // Локальная игра
             if (_controller.IsGameOver)
             {
                 turn = _controller.GameResult;
-                titleColor = Color.FromArgb(255, 60, 60);
+                titleColor = Color.FromArgb(100, 255, 100); // Зелёный для обоих
             }
             else
             {
-                titleColor = _controller.CurrentPlayer == PieceColor.White
-                    ? Color.White
-                    : Color.FromArgb(180, 180, 180);
+                turn = _controller.CurrentPlayer == PieceColor.White ? "ХОД БЕЛЫХ" : "ХОД ЧЁРНЫХ";
+                titleColor = _controller.CurrentPlayer == PieceColor.White ? Color.White : Color.FromArgb(180, 180, 180);
             }
 
             _titleLabel.Text = turn;
@@ -478,7 +498,11 @@ namespace SuperpositionChess.View
         private Color GetBorderColor()
         {
             if (_controller != null && _controller.IsGameOver)
-                return Color.FromArgb(220, 50, 50);
+            {
+                if (_isNetworkGame || _bot != null)
+                    return _iWon ? Color.FromArgb(100, 255, 100) : Color.FromArgb(255, 60, 60);
+                return Color.FromArgb(100, 255, 100); // Локальная — зелёный
+            }
 
             return _controller?.CurrentPlayer == PieceColor.White
                 ? Color.FromArgb(230, 230, 230)
@@ -594,14 +618,18 @@ namespace SuperpositionChess.View
             this.Controls.Add(_confirmButton);
 
             _cancelButton = CreateStyledButton("Отменить");
-            _cancelButton.Enabled = false;
-            _cancelButton.Click += (s, e) =>
-            {
-                _controller.CancelMove();
-                _lastMove = null;
-                ClearSelection();
-                this.Invalidate();
-            };
+_cancelButton.Enabled = false;
+_cancelButton.Click += (s, e) =>
+{
+    // Сохраняем LastMove перед отменой (это ход противника с прошлого раза)
+    var previousLastMove = _lastMove;
+    
+    _controller.CancelMove();
+    _lastMove = previousLastMove; // Восстанавливаем ход противника
+    _myLastMove = null; // Наш несостоявшийся ход убираем
+    ClearSelection();
+    this.Invalidate();
+};
             this.Controls.Add(_cancelButton);
 
             _newGameButton = CreateStyledButton("Новая игра");
@@ -609,6 +637,7 @@ namespace SuperpositionChess.View
             {
                 _controller.StartNewGame();
                 _lastMove = null;
+                _myLastMove = null;
                 ClearSelection();
                 this.Invalidate();
             };
@@ -1018,6 +1047,22 @@ namespace SuperpositionChess.View
             {
                 _myColor = _controller.CurrentPlayer;
                 _isWhitePerspective = _controller.CurrentPlayer == PieceColor.White;
+            }
+
+            // Определяем, выиграл ли я (для сети и бота)
+            if (_controller.IsGameOver)
+            {
+                if (_isNetworkGame)
+                {
+                    // В сети: я выиграл, если мой цвет совпадает с победителем
+                    bool whiteWon = _controller.GameResult.Contains("БЕЛЫЕ");
+                    _iWon = (_myColor == PieceColor.White && whiteWon) || (_myColor == PieceColor.Black && !whiteWon);
+                }
+                else if (_bot != null)
+                {
+                    // Против бота: я выиграл, если победили белые
+                    _iWon = _controller.GameResult.Contains("БЕЛЫЕ");
+                }
             }
 
             UpdateAllButtons();
