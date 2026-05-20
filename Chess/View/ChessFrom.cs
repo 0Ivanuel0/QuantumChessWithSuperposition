@@ -73,6 +73,13 @@ namespace SuperpositionChess.View
         // Локальная игра
         public ChessForm()
         {
+            // Получаем экран, на котором находится меню
+            var menuForm = Application.OpenForms["MenuForm"] ?? Application.OpenForms[0];
+            Screen targetScreen = menuForm != null
+                ? Screen.FromControl(menuForm)
+                : Screen.PrimaryScreen!;
+            this.Bounds = targetScreen.Bounds;
+
             _controller = new GameController();
             _currentValidMoves = new List<Move>();
             _hoverValidMoves = new List<Move>();
@@ -96,6 +103,13 @@ namespace SuperpositionChess.View
         // Игра с ботом
         public ChessForm(BotDifficulty difficulty)
         {
+            // Получаем экран, на котором находится меню
+            var menuForm = Application.OpenForms["MenuForm"] ?? Application.OpenForms[0];
+            Screen targetScreen = menuForm != null
+                ? Screen.FromControl(menuForm)
+                : Screen.PrimaryScreen!;
+            this.Bounds = targetScreen.Bounds;
+
             _botDifficulty = difficulty;
             _controller = new GameController();
             _currentValidMoves = new List<Move>();
@@ -117,11 +131,20 @@ namespace SuperpositionChess.View
 
             this.Resize += ChessForm_Resize;
             UpdateSizes();
+
         }
 
         // Сетевая игра — ХОСТ (принимает готовый сервер)
         public ChessForm(NetworkGameServer server, string roomKey)
         {
+
+            // Получаем экран, на котором находится меню
+            var menuForm = Application.OpenForms["MenuForm"] ?? Application.OpenForms[0];
+            Screen targetScreen = menuForm != null
+                ? Screen.FromControl(menuForm)
+                : Screen.PrimaryScreen!;
+            this.Bounds = targetScreen.Bounds;
+
             _isHost = true;
             _isNetworkGame = true;
             _myColor = PieceColor.White;
@@ -154,6 +177,13 @@ namespace SuperpositionChess.View
         // Сетевая игра — КЛИЕНТ (подключается и получает клиент)
         public ChessForm(string host, int port, string roomKey)
         {
+            // Получаем экран, на котором находится меню
+            var menuForm = Application.OpenForms["MenuForm"] ?? Application.OpenForms[0];
+            Screen targetScreen = menuForm != null
+                ? Screen.FromControl(menuForm)
+                : Screen.PrimaryScreen!;
+            this.Bounds = targetScreen.Bounds;
+
             _isHost = false;
             _isNetworkGame = true;
             _myColor = PieceColor.Black;
@@ -287,7 +317,14 @@ namespace SuperpositionChess.View
         {
             this.FormBorderStyle = FormBorderStyle.None;
             this.WindowState = FormWindowState.Maximized;
-            this.Bounds = Screen.PrimaryScreen!.Bounds;
+
+            // На том же экране что и меню
+            var menuForm = Application.OpenForms["MenuForm"] ?? Application.OpenForms[0];
+            Screen targetScreen = menuForm != null
+                ? Screen.FromControl(menuForm)
+                : Screen.PrimaryScreen!;
+            this.Bounds = targetScreen.Bounds;
+
             this.KeyDown += (s, e) =>
             {
                 if (e.KeyCode == Keys.Escape) this.Close();
@@ -340,11 +377,6 @@ namespace SuperpositionChess.View
                 {
                     turn = _iWon ? "ПОБЕДА!" : "ПОРАЖЕНИЕ";
                     titleColor = _iWon ? Color.FromArgb(100, 255, 100) : Color.FromArgb(255, 60, 60);
-                }
-                else if (_controller.IsPendingConfirmation)
-                {
-                    turn = "ПОДТВЕРДИТЕ ХОД";
-                    titleColor = Color.FromArgb(100, 255, 100);
                 }
                 else
                 {
@@ -618,18 +650,18 @@ namespace SuperpositionChess.View
             this.Controls.Add(_confirmButton);
 
             _cancelButton = CreateStyledButton("Отменить");
-_cancelButton.Enabled = false;
-_cancelButton.Click += (s, e) =>
-{
-    // Сохраняем LastMove перед отменой (это ход противника с прошлого раза)
-    var previousLastMove = _lastMove;
+            _cancelButton.Enabled = false;
+            _cancelButton.Click += (s, e) =>
+            {
+                // Сохраняем LastMove перед отменой (это ход противника с прошлого раза)
+                var previousLastMove = _lastMove;
     
-    _controller.CancelMove();
-    _lastMove = previousLastMove; // Восстанавливаем ход противника
-    _myLastMove = null; // Наш несостоявшийся ход убираем
-    ClearSelection();
-    this.Invalidate();
-};
+                _controller.CancelMove();
+                _lastMove = previousLastMove; // Восстанавливаем ход противника
+                _myLastMove = null; // Наш несостоявшийся ход убираем
+                ClearSelection();
+                this.Invalidate();
+            };
             this.Controls.Add(_cancelButton);
 
             _newGameButton = CreateStyledButton("Новая игра");
@@ -661,14 +693,13 @@ _cancelButton.Click += (s, e) =>
             _toggleSuperpositionButton.Paint += ToggleSuperpositionButton_Paint;
             this.Controls.Add(_toggleSuperpositionButton);
 
-            _flipBoardButton = CreateStyledButton("🔄");
+            _flipBoardButton = CreateStyledButton("Перспектива");
             _flipBoardButton.Click += (s, e) =>
             {
                 _isWhitePerspective = !_isWhitePerspective;
                 UpdateAllButtons();
                 this.Invalidate();
             };
-            _flipBoardButton.Font = new Font("Segoe UI", 16, FontStyle.Bold);
             this.Controls.Add(_flipBoardButton);
         }
 

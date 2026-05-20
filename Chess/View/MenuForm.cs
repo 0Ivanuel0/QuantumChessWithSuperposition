@@ -15,6 +15,9 @@ namespace SuperpositionChess.View
         private NetworkGameServer? _pendingServer;
         private string _pendingKey = "";
 
+        private bool _dragging = false;
+        private Point _dragStart;
+
         public MenuForm()
         {
             this.Text = "Quantum Chess";
@@ -31,6 +34,26 @@ namespace SuperpositionChess.View
             CreateInfoPanel();
             CreateNetworkCreatePanel();
             CreateNetworkJoinPanel();
+
+            // Перетаскивание окна
+            this.MouseDown += (s, e) =>
+            {
+                if (e.Button == MouseButtons.Left)
+                {
+                    _dragging = true;
+                    _dragStart = e.Location;
+                }
+            };
+            this.MouseMove += (s, e) =>
+            {
+                if (_dragging)
+                {
+                    this.Location = new Point(
+                        this.Location.X + e.X - _dragStart.X,
+                        this.Location.Y + e.Y - _dragStart.Y);
+                }
+            };
+            this.MouseUp += (s, e) => _dragging = false;
         }
 
         private void CenterUI()
