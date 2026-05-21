@@ -6,28 +6,26 @@ namespace SuperpositionChess.View
 {
     public class MenuForm : Form
     {
-        private Panel _botDifficultyPanel;
-        private Panel _infoPanel;
-
-        private Panel _networkCreatePanel;
-        private Panel _networkJoinPanel;
-        private string _joinKey = "";
-        private NetworkGameServer? _pendingServer;
-        private string _pendingKey = "";
-
-        private bool _dragging = false;
-        private Point _dragStart;
+        private Panel botDifficultyPanel;
+        private Panel infoPanel;
+        private Panel networkCreatePanel;
+        private Panel networkJoinPanel;
+        private string joinKey = "";
+        private NetworkGameServer? pendingServer;
+        private string pendingKey = "";
+        private bool dragging;
+        private Point dragStart;
 
         public MenuForm()
         {
-            this.Text = "Quantum Chess";
-            this.Size = new Size(600, 750);
-            this.StartPosition = FormStartPosition.CenterScreen;
-            this.FormBorderStyle = FormBorderStyle.None;
-            this.BackColor = Color.FromArgb(30, 30, 30);
-            this.Paint += MenuForm_Paint;
-            this.Load += (s, e) => CenterUI();
-            this.Resize += (s, e) => CenterUI();
+            Text = "Quantum Chess";
+            Size = new Size(600, 750);
+            StartPosition = FormStartPosition.CenterScreen;
+            FormBorderStyle = FormBorderStyle.None;
+            BackColor = Color.FromArgb(30, 30, 30);
+            Paint += MenuFormPaint;
+            Load += (s, e) => CenterUi();
+            Resize += (s, e) => CenterUi();
 
             CreateMenuButtons();
             CreateBotDifficultyPanel();
@@ -35,35 +33,25 @@ namespace SuperpositionChess.View
             CreateNetworkCreatePanel();
             CreateNetworkJoinPanel();
 
-            // Перетаскивание окна
-            this.MouseDown += (s, e) =>
+            MouseDown += (s, e) =>
             {
-                if (e.Button == MouseButtons.Left)
-                {
-                    _dragging = true;
-                    _dragStart = e.Location;
-                }
+                if (e.Button == MouseButtons.Left) { dragging = true; dragStart = e.Location; }
             };
-            this.MouseMove += (s, e) =>
+            MouseMove += (s, e) =>
             {
-                if (_dragging)
-                {
-                    this.Location = new Point(
-                        this.Location.X + e.X - _dragStart.X,
-                        this.Location.Y + e.Y - _dragStart.Y);
-                }
+                if (dragging)
+                    Location = new Point(Location.X + e.X - dragStart.X, Location.Y + e.Y - dragStart.Y);
             };
-            this.MouseUp += (s, e) => _dragging = false;
+            MouseUp += (s, e) => dragging = false;
         }
 
-        private void CenterUI()
+        private void CenterUi()
         {
-            int buttonWidth = 300;
-            int buttonHeight = 60;
-            int spacing = 20;
-
-            int startX = (ClientSize.Width - buttonWidth) / 2;
-            int startY = 220;
+            var buttonWidth = 300;
+            var buttonHeight = 60;
+            var spacing = 20;
+            var startX = (ClientSize.Width - buttonWidth) / 2;
+            var startY = 220;
 
             Controls[0].Location = new Point((ClientSize.Width - 500) / 2, 40);
             Controls[1].Location = new Point((ClientSize.Width - 500) / 2, 90);
@@ -74,175 +62,147 @@ namespace SuperpositionChess.View
             Controls[6].Location = new Point(startX, startY + (buttonHeight + spacing) * 4);
             Controls[7].Location = new Point(startX, startY + (buttonHeight + spacing) * 5);
 
-            _botDifficultyPanel.Location = new Point(
-                (ClientSize.Width - _botDifficultyPanel.Width) / 2,
-                Math.Max(140, (ClientSize.Height - _botDifficultyPanel.Height) / 2)
-            );
-            _infoPanel.Location = new Point(
-                (ClientSize.Width - _infoPanel.Width) / 2,
-                (ClientSize.Height - _infoPanel.Height) / 2
-            );
-            _networkCreatePanel.Location = new Point(
-                (ClientSize.Width - _networkCreatePanel.Width) / 2,
-                (ClientSize.Height - _networkCreatePanel.Height) / 2
-            );
-            _networkJoinPanel.Location = new Point(
-                (ClientSize.Width - _networkJoinPanel.Width) / 2,
-                Math.Max(140, (ClientSize.Height - _networkJoinPanel.Height) / 2)
-            );
+            botDifficultyPanel.Location = new Point((ClientSize.Width - botDifficultyPanel.Width) / 2,
+                Math.Max(140, (ClientSize.Height - botDifficultyPanel.Height) / 2));
+            infoPanel.Location = new Point((ClientSize.Width - infoPanel.Width) / 2,
+                (ClientSize.Height - infoPanel.Height) / 2);
+            networkCreatePanel.Location = new Point((ClientSize.Width - networkCreatePanel.Width) / 2,
+                (ClientSize.Height - networkCreatePanel.Height) / 2);
+            networkJoinPanel.Location = new Point((ClientSize.Width - networkJoinPanel.Width) / 2,
+                Math.Max(140, (ClientSize.Height - networkJoinPanel.Height) / 2));
         }
 
-        private void MenuForm_Paint(object? sender, PaintEventArgs e)
-        {
-            DrawCheckerboardBackground(e.Graphics, this.ClientSize);
-        }
+        private void MenuFormPaint(object? sender, PaintEventArgs e) => DrawCheckerboardBackground(e.Graphics, ClientSize);
 
         public static void DrawCheckerboardBackground(Graphics g, Size size)
         {
-            int cellSize = 200;
-            Color lightGray = Color.FromArgb(55, 55, 55);
-            Color darkGray = Color.FromArgb(40, 40, 40);
+            var cellSize = 200;
+            var lightGray = Color.FromArgb(55, 55, 55);
+            var darkGray = Color.FromArgb(40, 40, 40);
 
-            for (int row = 0; row < size.Height / cellSize + 1; row++)
+            for (var row = 0; row < size.Height / cellSize + 1; row++)
             {
-                for (int col = 0; col < size.Width / cellSize + 1; col++)
+                for (var col = 0; col < size.Width / cellSize + 1; col++)
                 {
-                    Color color = (row + col) % 2 == 0 ? lightGray : darkGray;
-                    using (SolidBrush brush = new SolidBrush(color))
-                    {
-                        g.FillRectangle(brush, col * cellSize, row * cellSize, cellSize, cellSize);
-                    }
+                    var color = (row + col) % 2 == 0 ? lightGray : darkGray;
+                    using var brush = new SolidBrush(color);
+                    g.FillRectangle(brush, col * cellSize, row * cellSize, cellSize, cellSize);
                 }
             }
         }
 
         private void CreateMenuButtons()
         {
-            int buttonWidth = 300;
-            int buttonHeight = 60;
-            int startX = (this.ClientSize.Width - buttonWidth) / 2;
-            int startY = 220;
-            int spacing = 20;
+            var buttonWidth = 300;
+            var buttonHeight = 60;
+            var startX = (ClientSize.Width - buttonWidth) / 2;
+            var startY = 220;
+            var spacing = 20;
 
-            Label titleLabel = new Label
+            var titleLabel = new Label
             {
                 Text = "♔ QUANTUM CHESS ♚",
                 Font = new Font("Segoe UI", 30, FontStyle.Bold),
                 ForeColor = Color.White,
                 TextAlign = ContentAlignment.MiddleCenter,
                 Size = new Size(500, 50),
-                Location = new Point((this.ClientSize.Width - 500) / 2, 40)
+                Location = new Point((ClientSize.Width - 500) / 2, 40)
             };
-            this.Controls.Add(titleLabel);
+            Controls.Add(titleLabel);
 
-            Label subtitleLabel = new Label
+            var subtitleLabel = new Label
             {
                 Text = "With Superposition",
                 Font = new Font("Segoe UI", 16, FontStyle.Italic),
                 ForeColor = Color.FromArgb(180, 180, 180),
                 TextAlign = ContentAlignment.MiddleCenter,
                 Size = new Size(500, 30),
-                Location = new Point((this.ClientSize.Width - 500) / 2, 90)
+                Location = new Point((ClientSize.Width - 500) / 2, 90)
             };
-            this.Controls.Add(subtitleLabel);
+            Controls.Add(subtitleLabel);
 
-            Button localButton = CreateMenuButton("♙ Локально", startX, startY, buttonWidth, buttonHeight);
-            localButton.Click += (s, e) =>
-            {
-                this.Hide();
-                ChessForm chessForm = new ChessForm();
-                chessForm.FormClosed += (s, e) => this.Show();
-                chessForm.Show();
-            };
-            this.Controls.Add(localButton);
+            var localButton = CreateMenuButton("♙ Локально", startX, startY, buttonWidth, buttonHeight);
+            localButton.Click += (s, e) => OpenChessForm(() => new ChessForm());
+            Controls.Add(localButton);
 
-            Button botButton = CreateMenuButton("♖ Компьютер", startX, startY + buttonHeight + spacing, buttonWidth, buttonHeight);
-            botButton.Click += (s, e) =>
-            {
-                _botDifficultyPanel.Visible = true;
-                _botDifficultyPanel.BringToFront();
-            };
-            this.Controls.Add(botButton);
+            var botButton = CreateMenuButton("♖ Компьютер", startX, startY + buttonHeight + spacing, buttonWidth, buttonHeight);
+            botButton.Click += (s, e) => { botDifficultyPanel.Visible = true; botDifficultyPanel.BringToFront(); };
+            Controls.Add(botButton);
 
-            // Кнопка "Создать игру" — ИЗМЕНЁННАЯ
-            Button createButton = CreateMenuButton("♗ Создать игру", startX, startY + (buttonHeight + spacing) * 2, buttonWidth, buttonHeight);
+            var createButton = CreateMenuButton("♗ Создать игру", startX, startY + (buttonHeight + spacing) * 2, buttonWidth, buttonHeight);
             createButton.Click += (s, e) =>
             {
-                _pendingKey = RoomKeyGenerator.GenerateKey();
-                _pendingServer = new NetworkGameServer(5555, _pendingKey);
+                pendingKey = RoomKeyGenerator.GenerateKey();
+                pendingServer = new NetworkGameServer(5555, pendingKey);
+                networkCreatePanel.Controls["keyLabel"]!.Text = pendingKey;
+                networkCreatePanel.Controls["statusLabel"]!.Text = "Ожидание противника...";
+                networkCreatePanel.Visible = true;
+                networkCreatePanel.BringToFront();
 
-                _networkCreatePanel.Controls["keyLabel"].Text = _pendingKey;
-                _networkCreatePanel.Controls["statusLabel"].Text = "Ожидание противника...";
-                _networkCreatePanel.Visible = true;
-                _networkCreatePanel.BringToFront();
-
-                _pendingServer.OnClientConnected += () =>
+                pendingServer.OnClientConnected += () =>
                 {
-                    this.Invoke(() =>
+                    Invoke(() =>
                     {
-                        _networkCreatePanel.Controls["statusLabel"].Text = "Противник подключился!";
-                        _networkCreatePanel.Controls["statusLabel"].ForeColor = Color.FromArgb(100, 255, 100);
-                        Task.Delay(500).ContinueWith(_ => this.Invoke(() =>
+                        networkCreatePanel.Controls["statusLabel"]!.Text = "Противник подключился!";
+                        networkCreatePanel.Controls["statusLabel"]!.ForeColor = Color.FromArgb(100, 255, 100);
+                        Task.Delay(500).ContinueWith(_ => Invoke(() =>
                         {
-                            this.Hide();
-                            var chessForm = new ChessForm(_pendingServer, _pendingKey);
-                            chessForm.FormClosed += (s, e) => this.Show();
+                            Hide();
+                            var chessForm = new ChessForm(pendingServer, pendingKey);
+                            chessForm.FormClosed += (s, e) => Show();
                             chessForm.Show();
-                            _networkCreatePanel.Visible = false;
+                            networkCreatePanel.Visible = false;
                         }));
                     });
                 };
-
-                _ = _pendingServer.StartAsync();
+                _ = pendingServer.StartAsync();
             };
-            this.Controls.Add(createButton);
+            Controls.Add(createButton);
 
-            Button joinButton = CreateMenuButton("♘ Подключиться", startX, startY + (buttonHeight + spacing) * 3, buttonWidth, buttonHeight);
+            var joinButton = CreateMenuButton("♘ Подключиться", startX, startY + (buttonHeight + spacing) * 3, buttonWidth, buttonHeight);
             joinButton.Click += (s, e) =>
             {
-                _joinKey = "";
-                _networkJoinPanel.Controls["keyInput"].Text = "";
-                _networkJoinPanel.Visible = true;
-                _networkJoinPanel.BringToFront();
+                joinKey = "";
+                networkJoinPanel.Controls["keyInput"]!.Text = "";
+                networkJoinPanel.Visible = true;
+                networkJoinPanel.BringToFront();
             };
-            this.Controls.Add(joinButton);
+            Controls.Add(joinButton);
 
-            Button infoButton = CreateMenuButton("♕ Инфо", startX, startY + (buttonHeight + spacing) * 4, buttonWidth, buttonHeight);
-            infoButton.Click += (s, e) =>
-            {
-                _infoPanel.Visible = true;
-                _infoPanel.BringToFront();
-            };
-            this.Controls.Add(infoButton);
+            var infoButton = CreateMenuButton("♕ Инфо", startX, startY + (buttonHeight + spacing) * 4, buttonWidth, buttonHeight);
+            infoButton.Click += (s, e) => { infoPanel.Visible = true; infoPanel.BringToFront(); };
+            Controls.Add(infoButton);
 
-            Button exitButton = CreateMenuButton("✕ Выйти", startX, startY + (buttonHeight + spacing) * 5, buttonWidth, buttonHeight);
+            var exitButton = CreateMenuButton("✕ Выйти", startX, startY + (buttonHeight + spacing) * 5, buttonWidth, buttonHeight);
             exitButton.Click += (s, e) => Application.Exit();
-            this.Controls.Add(exitButton);
+            Controls.Add(exitButton);
+        }
+
+        private void OpenChessForm(Func<ChessForm> factory)
+        {
+            Hide();
+            var chessForm = factory();
+            chessForm.FormClosed += (s, e) => Show();
+            chessForm.Show();
         }
 
         private void CreateNetworkCreatePanel()
         {
-            _networkCreatePanel = new Panel
+            networkCreatePanel = new Panel
             {
                 Size = new Size(400, 250),
                 BackColor = Color.FromArgb(35, 35, 35),
-                Visible = false,
-                Name = "createPanel"
+                Visible = false
             };
-            _networkCreatePanel.Paint += (s, e) =>
+            networkCreatePanel.Paint += (s, e) =>
             {
                 e.Graphics.Clear(Color.FromArgb(35, 35, 35));
-                using (Pen pen = new Pen(Color.FromArgb(100, 200, 100), 3))
-                {
-                    e.Graphics.DrawRectangle(pen, 1, 1, _networkCreatePanel.Width - 3, _networkCreatePanel.Height - 3);
-                }
+                using var pen = new Pen(Color.FromArgb(100, 200, 100), 3);
+                e.Graphics.DrawRectangle(pen, 1, 1, networkCreatePanel.Width - 3, networkCreatePanel.Height - 3);
             };
 
-            int panelW = _networkCreatePanel.Width;
-            int panelH = _networkCreatePanel.Height;
-            int centerX = panelW / 2;
-
-            Label titleLabel = new Label
+            var panelW = networkCreatePanel.Width;
+            var titleLabel = new Label
             {
                 Text = "СОЗДАНИЕ ИГРЫ",
                 Font = new Font("Segoe UI", 16, FontStyle.Bold),
@@ -251,22 +211,21 @@ namespace SuperpositionChess.View
                 Size = new Size(panelW - 20, 35),
                 Location = new Point(10, 15)
             };
-            _networkCreatePanel.Controls.Add(titleLabel);
+            networkCreatePanel.Controls.Add(titleLabel);
 
-            Label keyCaptionLabel = new Label
+            var keyCaptionLabel = new Label
             {
                 Text = "Ключ комнаты:",
-                Font = new Font("Segoe UI", 12, FontStyle.Regular),
+                Font = new Font("Segoe UI", 12),
                 ForeColor = Color.FromArgb(180, 180, 180),
                 TextAlign = ContentAlignment.MiddleCenter,
                 Size = new Size(panelW - 40, 25),
                 Location = new Point(20, 60)
             };
-            _networkCreatePanel.Controls.Add(keyCaptionLabel);
+            networkCreatePanel.Controls.Add(keyCaptionLabel);
 
-            Label keyLabel = new Label
+            var keyLabel = new Label
             {
-                Text = "",
                 Font = new Font("Segoe UI", 20, FontStyle.Bold),
                 ForeColor = Color.White,
                 TextAlign = ContentAlignment.MiddleCenter,
@@ -275,21 +234,21 @@ namespace SuperpositionChess.View
                 Name = "keyLabel",
                 BackColor = Color.FromArgb(50, 50, 50)
             };
-            _networkCreatePanel.Controls.Add(keyLabel);
+            networkCreatePanel.Controls.Add(keyLabel);
 
-            Label statusLabel = new Label
+            var statusLabel = new Label
             {
                 Text = "Ожидание противника...",
-                Font = new Font("Segoe UI", 11, FontStyle.Regular),
+                Font = new Font("Segoe UI", 11),
                 ForeColor = Color.FromArgb(255, 200, 50),
                 TextAlign = ContentAlignment.MiddleCenter,
                 Size = new Size(panelW - 40, 25),
                 Location = new Point(20, 145),
                 Name = "statusLabel"
             };
-            _networkCreatePanel.Controls.Add(statusLabel);
+            networkCreatePanel.Controls.Add(statusLabel);
 
-            Button backButton = new Button
+            var backButton = new Button
             {
                 Text = "Отмена",
                 Size = new Size(120, 35),
@@ -302,33 +261,29 @@ namespace SuperpositionChess.View
             };
             backButton.FlatAppearance.BorderSize = 1;
             backButton.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
-            backButton.Click += (s, e) => _networkCreatePanel.Visible = false;
-            _networkCreatePanel.Controls.Add(backButton);
+            backButton.Click += (s, e) => networkCreatePanel.Visible = false;
+            networkCreatePanel.Controls.Add(backButton);
 
-            this.Controls.Add(_networkCreatePanel);
+            Controls.Add(networkCreatePanel);
         }
 
         private void CreateNetworkJoinPanel()
         {
-            _networkJoinPanel = new Panel
+            networkJoinPanel = new Panel
             {
                 Size = new Size(400, 300),
                 BackColor = Color.FromArgb(35, 35, 35),
-                Visible = false,
-                Name = "joinPanel"
+                Visible = false
             };
-            _networkJoinPanel.Paint += (s, e) =>
+            networkJoinPanel.Paint += (s, e) =>
             {
                 e.Graphics.Clear(Color.FromArgb(35, 35, 35));
-                using (Pen pen = new Pen(Color.FromArgb(200, 150, 50), 3))
-                {
-                    e.Graphics.DrawRectangle(pen, 1, 1, _networkJoinPanel.Width - 3, _networkJoinPanel.Height - 3);
-                }
+                using var pen = new Pen(Color.FromArgb(200, 150, 50), 3);
+                e.Graphics.DrawRectangle(pen, 1, 1, networkJoinPanel.Width - 3, networkJoinPanel.Height - 3);
             };
 
-            int panelW = _networkJoinPanel.Width;
-
-            Label titleLabel = new Label
+            var panelW = networkJoinPanel.Width;
+            var titleLabel = new Label
             {
                 Text = "ПОДКЛЮЧЕНИЕ К ИГРЕ",
                 Font = new Font("Segoe UI", 16, FontStyle.Bold),
@@ -337,22 +292,21 @@ namespace SuperpositionChess.View
                 Size = new Size(panelW - 20, 35),
                 Location = new Point(10, 15)
             };
-            _networkJoinPanel.Controls.Add(titleLabel);
+            networkJoinPanel.Controls.Add(titleLabel);
 
-            Label keyCaptionLabel = new Label
+            var keyCaptionLabel = new Label
             {
                 Text = "Введите ключ комнаты:",
-                Font = new Font("Segoe UI", 12, FontStyle.Regular),
+                Font = new Font("Segoe UI", 12),
                 ForeColor = Color.FromArgb(180, 180, 180),
                 TextAlign = ContentAlignment.MiddleCenter,
                 Size = new Size(panelW - 40, 25),
                 Location = new Point(20, 60)
             };
-            _networkJoinPanel.Controls.Add(keyCaptionLabel);
+            networkJoinPanel.Controls.Add(keyCaptionLabel);
 
-            TextBox keyInput = new TextBox
+            var keyInput = new TextBox
             {
-                Text = "",
                 Font = new Font("Segoe UI", 18, FontStyle.Bold),
                 ForeColor = Color.White,
                 BackColor = Color.FromArgb(50, 50, 50),
@@ -363,23 +317,23 @@ namespace SuperpositionChess.View
                 TextAlign = HorizontalAlignment.Center,
                 MaxLength = 6
             };
-            _networkJoinPanel.Controls.Add(keyInput);
+            networkJoinPanel.Controls.Add(keyInput);
 
-            Label ipCaptionLabel = new Label
+            var ipCaptionLabel = new Label
             {
                 Text = "IP адрес:",
-                Font = new Font("Segoe UI", 12, FontStyle.Regular),
+                Font = new Font("Segoe UI", 12),
                 ForeColor = Color.FromArgb(180, 180, 180),
                 TextAlign = ContentAlignment.MiddleCenter,
                 Size = new Size(panelW - 40, 25),
                 Location = new Point(20, 145)
             };
-            _networkJoinPanel.Controls.Add(ipCaptionLabel);
+            networkJoinPanel.Controls.Add(ipCaptionLabel);
 
-            TextBox ipTextBox = new TextBox
+            var ipTextBox = new TextBox
             {
                 Text = "127.0.0.1",
-                Font = new Font("Segoe UI", 12, FontStyle.Regular),
+                Font = new Font("Segoe UI", 12),
                 ForeColor = Color.White,
                 BackColor = Color.FromArgb(50, 50, 50),
                 BorderStyle = BorderStyle.FixedSingle,
@@ -387,15 +341,14 @@ namespace SuperpositionChess.View
                 Location = new Point(20, 170),
                 Name = "ipInput"
             };
-            _networkJoinPanel.Controls.Add(ipTextBox);
+            networkJoinPanel.Controls.Add(ipTextBox);
 
-            // Кнопки в ряд
-            int buttonWidth = 130;
-            int buttonsTotalWidth = buttonWidth * 2 + 20;
-            int buttonsX = (panelW - buttonsTotalWidth) / 2;
-            int buttonsY = 220;
+            var buttonWidth = 130;
+            var buttonsTotalWidth = buttonWidth * 2 + 20;
+            var buttonsX = (panelW - buttonsTotalWidth) / 2;
+            var buttonsY = 220;
 
-            Button connectButton = new Button
+            var connectButton = new Button
             {
                 Text = "Подключиться",
                 Size = new Size(buttonWidth, 35),
@@ -415,17 +368,16 @@ namespace SuperpositionChess.View
                     MessageBox.Show("Ключ должен содержать 6 цифр!", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
-
-                string ip = ipTextBox.Text.Trim();
-                this.Hide();
-                ChessForm chessForm = new ChessForm(ip, 5555, keyInput.Text.Trim());
-                chessForm.FormClosed += (s, e) => this.Show();
+                var ip = ipTextBox.Text.Trim();
+                Hide();
+                var chessForm = new ChessForm(ip, 5555, keyInput.Text.Trim());
+                chessForm.FormClosed += (s, e) => Show();
                 chessForm.Show();
-                _networkJoinPanel.Visible = false;
+                networkJoinPanel.Visible = false;
             };
-            _networkJoinPanel.Controls.Add(connectButton);
+            networkJoinPanel.Controls.Add(connectButton);
 
-            Button cancelButton = new Button
+            var cancelButton = new Button
             {
                 Text = "Назад",
                 Size = new Size(buttonWidth, 35),
@@ -438,36 +390,28 @@ namespace SuperpositionChess.View
             };
             cancelButton.FlatAppearance.BorderSize = 1;
             cancelButton.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
-            cancelButton.Click += (s, e) =>
-            {
-                keyInput.Text = "";
-                _networkJoinPanel.Visible = false;
-            };
-            _networkJoinPanel.Controls.Add(cancelButton);
+            cancelButton.Click += (s, e) => { keyInput.Text = ""; networkJoinPanel.Visible = false; };
+            networkJoinPanel.Controls.Add(cancelButton);
 
-            this.Controls.Add(_networkJoinPanel);
+            Controls.Add(networkJoinPanel);
         }
 
         private void CreateBotDifficultyPanel()
         {
-            _botDifficultyPanel = new Panel
+            botDifficultyPanel = new Panel
             {
                 Size = new Size(350, 410),
-                Location = new Point((this.ClientSize.Width - 350) / 2, 180),
                 BackColor = Color.FromArgb(35, 35, 35),
                 Visible = false
             };
-
-            _botDifficultyPanel.Paint += (s, e) =>
+            botDifficultyPanel.Paint += (s, e) =>
             {
                 e.Graphics.Clear(Color.FromArgb(35, 35, 35));
-                using (Pen pen = new Pen(Color.FromArgb(180, 180, 180), 3))
-                {
-                    e.Graphics.DrawRectangle(pen, 1, 1, _botDifficultyPanel.Width - 3, _botDifficultyPanel.Height - 3);
-                }
+                using var pen = new Pen(Color.FromArgb(180, 180, 180), 3);
+                e.Graphics.DrawRectangle(pen, 1, 1, botDifficultyPanel.Width - 3, botDifficultyPanel.Height - 3);
             };
 
-            Label titleLabel = new Label
+            var titleLabel = new Label
             {
                 Text = "Выберите сложность",
                 Font = new Font("Segoe UI", 18, FontStyle.Bold),
@@ -476,20 +420,20 @@ namespace SuperpositionChess.View
                 Size = new Size(300, 40),
                 Location = new Point(25, 20)
             };
-            _botDifficultyPanel.Controls.Add(titleLabel);
+            botDifficultyPanel.Controls.Add(titleLabel);
 
-            string[] difficulties = { "Лёгкий", "Средний", "Сложный", "Читер" };
-            BotDifficulty[] difficultyValues = { BotDifficulty.Easy, BotDifficulty.Medium, BotDifficulty.Hard, BotDifficulty.Cheater };
-            Color[] difficultyColors = {
-        Color.FromArgb(100, 200, 100),
-        Color.FromArgb(255, 200, 50),
-        Color.FromArgb(255, 80, 80),
-        Color.FromArgb(200, 50, 200)   // Фиолетовый для читера
-    };
-
-            for (int i = 0; i < 4; i++)
+            var difficulties = new[] { "Лёгкий", "Средний", "Сложный", "Читер" };
+            var difficultyValues = new[] { BotDifficulty.Easy, BotDifficulty.Medium, BotDifficulty.Hard, BotDifficulty.Cheater };
+            var difficultyColors = new[]
             {
-                Button diffButton = new Button
+                Color.FromArgb(100, 200, 100), Color.FromArgb(255, 200, 50),
+                Color.FromArgb(255, 80, 80), Color.FromArgb(200, 50, 200)
+            };
+
+            for (var i = 0; i < 4; i++)
+            {
+                var difficulty = difficultyValues[i];
+                var diffButton = new Button
                 {
                     Text = difficulties[i],
                     Size = new Size(280, 50),
@@ -503,21 +447,18 @@ namespace SuperpositionChess.View
                 diffButton.FlatAppearance.BorderSize = 1;
                 diffButton.FlatAppearance.BorderColor = difficultyColors[i];
                 diffButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(80, 80, 80);
-
-                var difficulty = difficultyValues[i];
                 diffButton.Click += (s, e) =>
                 {
-                    this.Hide();
-                    ChessForm chessForm = new ChessForm(difficulty);
-                    chessForm.FormClosed += (s, e) => this.Show();
+                    Hide();
+                    var chessForm = new ChessForm(difficulty);
+                    chessForm.FormClosed += (s, e) => Show();
                     chessForm.Show();
-                    _botDifficultyPanel.Visible = false;
+                    botDifficultyPanel.Visible = false;
                 };
-
-                _botDifficultyPanel.Controls.Add(diffButton);
+                botDifficultyPanel.Controls.Add(diffButton);
             }
 
-            Button backButton = new Button
+            var backButton = new Button
             {
                 Text = "Назад",
                 Size = new Size(100, 35),
@@ -530,53 +471,40 @@ namespace SuperpositionChess.View
             };
             backButton.FlatAppearance.BorderSize = 1;
             backButton.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
-            backButton.Click += (s, e) => _botDifficultyPanel.Visible = false;
-            _botDifficultyPanel.Controls.Add(backButton);
+            backButton.Click += (s, e) => botDifficultyPanel.Visible = false;
+            botDifficultyPanel.Controls.Add(backButton);
 
-            this.Controls.Add(_botDifficultyPanel);
+            Controls.Add(botDifficultyPanel);
         }
 
         private void CreateInfoPanel()
         {
-            _infoPanel = new Panel
+            infoPanel = new Panel
             {
                 Size = new Size(520, 480),
-                Location = new Point((this.ClientSize.Width - 520) / 2, 140),
                 BackColor = Color.FromArgb(35, 35, 35),
                 Visible = false
             };
-
-            _infoPanel.Paint += (s, e) =>
+            infoPanel.Paint += (s, e) =>
             {
                 e.Graphics.Clear(Color.FromArgb(35, 35, 35));
-                using (Pen pen = new Pen(Color.FromArgb(180, 180, 180), 3))
-                {
-                    e.Graphics.DrawRectangle(pen, 1, 1, _infoPanel.Width - 3, _infoPanel.Height - 3);
-                }
+                using var pen = new Pen(Color.FromArgb(180, 180, 180), 3);
+                e.Graphics.DrawRectangle(pen, 1, 1, infoPanel.Width - 3, infoPanel.Height - 3);
             };
 
-            Panel headerPanel = new Panel
+            var headerPanel = new Panel
             {
                 Size = new Size(514, 45),
                 Location = new Point(3, 3),
                 BackColor = Color.FromArgb(50, 50, 50)
             };
-
             headerPanel.Paint += (s, e) =>
             {
-                using (Pen pen = new Pen(Color.FromArgb(90, 90, 90), 2))
-                {
-                    e.Graphics.DrawLine(
-                        pen,
-                        0,
-                        headerPanel.Height - 1,
-                        headerPanel.Width,
-                        headerPanel.Height - 1
-                    );
-                }
+                using var pen = new Pen(Color.FromArgb(90, 90, 90), 2);
+                e.Graphics.DrawLine(pen, 0, headerPanel.Height - 1, headerPanel.Width, headerPanel.Height - 1);
             };
 
-            Label headerLabel = new Label
+            var headerLabel = new Label
             {
                 Text = "♔ ПРАВИЛА ИГРЫ ♚",
                 Font = new Font("Segoe UI", 14, FontStyle.Bold),
@@ -585,11 +513,10 @@ namespace SuperpositionChess.View
                 TextAlign = ContentAlignment.MiddleCenter,
                 Dock = DockStyle.Fill
             };
-
             headerPanel.Controls.Add(headerLabel);
-            _infoPanel.Controls.Add(headerPanel);
+            infoPanel.Controls.Add(headerPanel);
 
-            string rules = @"
+            var rules = @"
 ОБЩИЕ ПРАВИЛА
 Все стандартные правила шахмат сохраняются: ходы фигур, рокировка, взятие на проходе, превращение пешки.
 
@@ -616,7 +543,7 @@ namespace SuperpositionChess.View
 При ходе сквозь мнимые фигуры, если на пути встречается реальная фигура врага, ваша фигура останавливается перед ней. Это не взятие.
 
 КНОПКА СУПЕРПОЗИЦИИ
-Кнопка справа от доски позволяет скрыть своих мнимых фигур для удобства обзора. Реальная фигура всегда видна.
+Кнопка справа от доски позволяет скрыть своих мнимых фигур для удобства обзора.
 
 ПОДТВЕРЖДЕНИЕ ХОДА
 Перед завершением хода вы видите его предпросмотр. Нажмите «Подтвердить» для завершения или «Отменить» для возврата доски.
@@ -625,7 +552,7 @@ namespace SuperpositionChess.View
 Три уровня сложности: Лёгкий, Средний, Сложный. Бот не знает, где настоящая фигура среди фантомов.
 ";
 
-            NoScrollPanel scrollPanel = new NoScrollPanel
+            var scrollPanel = new NoScrollPanel
             {
                 Location = new Point(15, 40),
                 Size = new Size(490, 390),
@@ -633,22 +560,20 @@ namespace SuperpositionChess.View
                 BackColor = Color.Transparent
             };
 
-            Label rulesLabel = new Label
+            var rulesLabel = new Label
             {
                 Text = rules,
-                Font = new Font("Segoe UI", 9, FontStyle.Regular),
+                Font = new Font("Segoe UI", 9),
                 ForeColor = Color.FromArgb(200, 200, 200),
                 BackColor = Color.Transparent,
                 Location = new Point(0, 0),
                 AutoSize = true,
                 MaximumSize = new Size(470, 0)
             };
-
             scrollPanel.Controls.Add(rulesLabel);
-            _infoPanel.Controls.Add(scrollPanel);
+            infoPanel.Controls.Add(scrollPanel);
 
-            // Кнопка закрыть
-            Button closeButton = new Button
+            var closeButton = new Button
             {
                 Text = "Закрыть",
                 Size = new Size(120, 35),
@@ -662,15 +587,15 @@ namespace SuperpositionChess.View
             closeButton.FlatAppearance.BorderSize = 1;
             closeButton.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
             closeButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(70, 70, 70);
-            closeButton.Click += (s, e) => _infoPanel.Visible = false;
-            _infoPanel.Controls.Add(closeButton);
+            closeButton.Click += (s, e) => infoPanel.Visible = false;
+            infoPanel.Controls.Add(closeButton);
 
-            this.Controls.Add(_infoPanel);
+            Controls.Add(infoPanel);
         }
 
         private Button CreateMenuButton(string text, int x, int y, int width, int height)
         {
-            Button button = new Button
+            var button = new Button
             {
                 Text = text,
                 Size = new Size(width, height),
@@ -685,7 +610,6 @@ namespace SuperpositionChess.View
             button.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
             button.FlatAppearance.MouseOverBackColor = Color.FromArgb(80, 80, 80);
             button.FlatAppearance.MouseDownBackColor = Color.FromArgb(100, 100, 100);
-
             return button;
         }
     }
@@ -696,20 +620,17 @@ namespace SuperpositionChess.View
         {
             get
             {
-                CreateParams cp = base.CreateParams;
-                cp.Style &= ~0x200000; // WS_VSCROLL
+                var cp = base.CreateParams;
+                cp.Style &= ~0x200000;
                 return cp;
             }
         }
 
         protected override void WndProc(ref Message m)
         {
-            const int WM_NCCALCSIZE = 0x83;
-            if (m.Msg == WM_NCCALCSIZE)
-                return;
-
+            const int wmNcCalcSize = 0x83;
+            if (m.Msg == wmNcCalcSize) return;
             base.WndProc(ref m);
         }
     }
-
 }

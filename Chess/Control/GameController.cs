@@ -9,12 +9,12 @@ namespace SuperpositionChess.Controller
         public bool IsGameOver;
         public string GameResult { get; private set; } = "";
         public Move? LastMove { get; private set; }
-        public bool IsPendingConfirmation { get; private set; } = false;
+        public bool IsPendingConfirmation { get; private set; }
 
-        private Board? _boardBeforeMove;
-        private Move? _pendingMove;
-        private List<Move>? _pendingNonContactMoves;
-        private int _pendingFromRow, _pendingFromCol, _pendingToRow, _pendingToColumn;
+        private Board? boardBeforeMove;
+        private Move? pendingMove;
+        private List<Move>? pendingNonContactMoves;
+        private int pendingFromRow, pendingFromCol, pendingToRow, pendingToColumn;
 
         public event Action? OnGameStateChanged;
         public event Action<string>? OnGameOver;
@@ -24,7 +24,6 @@ namespace SuperpositionChess.Controller
         {
             Board = new Board(gridSize);
             CurrentPlayer = PieceColor.White;
-            IsGameOver = false;
         }
 
         public void StartNewGame()
@@ -34,28 +33,18 @@ namespace SuperpositionChess.Controller
             IsGameOver = false;
             GameResult = "";
             IsPendingConfirmation = false;
-            _boardBeforeMove = null;
-            _pendingMove = null;
-            _pendingNonContactMoves = null;
-
+            boardBeforeMove = null;
+            pendingMove = null;
+            pendingNonContactMoves = null;
             OnGameStateChanged?.Invoke();
         }
 
         public bool TryMakeMove(int fromRow, int fromColumn, int toRow, int toColumn)
         {
-            if (IsGameOver)
-            {
-                OnError?.Invoke("Игра Окончена");
-                return false;
-            }
+            if (IsGameOver) { OnError?.Invoke("Игра окончена"); return false; }
+            if (IsPendingConfirmation) { OnError?.Invoke("Подтвердите или отмените текущий ход"); return false; }
 
-            if (IsPendingConfirmation)
-            {
-                OnError?.Invoke("Подтвердите или отмените текущий ход");
-                return false;
-            }
-
-            if (!Board.TryGetPiece(fromRow, fromColumn, out Piece? piece) || piece.Color != CurrentPlayer)
+            if (!Board.TryGetPiece(fromRow, fromColumn, out var piece) || piece.Color != CurrentPlayer)
             {
                 OnError?.Invoke("Выберите свою фигуру!");
                 return false;
@@ -63,33 +52,24 @@ namespace SuperpositionChess.Controller
 
             Move? selectedMove = null;
             foreach (var move in GetValidMoves(fromRow, fromColumn))
-                if (move.ToRow == toRow && move.ToColumn == toColumn)
-                {
-                    selectedMove = move;
-                    break;
-                }
-
-            if (selectedMove == null)
             {
-                OnError?.Invoke("Эта фигура не может ходить!");
-                return false;
+                if (move.ToRow == toRow && move.ToColumn == toColumn) { selectedMove = move; break; }
             }
 
-            // Сохраняем состояние до хода
-            _boardBeforeMove = Board.Clone();
-            _pendingFromRow = fromRow;
-            _pendingFromCol = fromColumn;
-            _pendingToRow = toRow;
-            _pendingToColumn = toColumn;
+            if (selectedMove == null) { OnError?.Invoke("Эта фигура не может ходить!"); return false; }
 
-            // Показываем ход БЕЗ очистки суперпозиции противника
-            _pendingNonContactMoves = Board.GetNonContactMoves(fromRow, fromColumn, CurrentPlayer);
-            _pendingMove = selectedMove;
+            boardBeforeMove = Board.Clone();
+            pendingFromRow = fromRow;
+            pendingFromCol = fromColumn;
+            pendingToRow = toRow;
+            pendingToColumn = toColumn;
+
+            pendingNonContactMoves = Board.GetNonContactMoves(fromRow, fromColumn, CurrentPlayer);
+            pendingMove = selectedMove;
             Board.MakeMove(selectedMove);
 
-            // Создаём суперпозицию
-            if (_pendingNonContactMoves.Any(m => m.ToRow == toRow && m.ToColumn == toColumn))
-                Board.CreateSuperposition(selectedMove, _pendingNonContactMoves, CurrentPlayer);
+            if (pendingNonContactMoves.Any(m => m.ToRow == toRow && m.ToColumn == toColumn))
+                Board.CreateSuperposition(selectedMove, pendingNonContactMoves, CurrentPlayer);
 
             IsPendingConfirmation = true;
             LastMove = selectedMove;
@@ -99,22 +79,21 @@ namespace SuperpositionChess.Controller
 
         public void ConfirmMove()
         {
-            if (!IsPendingConfirmation || _pendingMove == null || _boardBeforeMove == null) return;
+            if (!IsPendingConfirmation || pendingMove == null || boardBeforeMove == null) return;
 
-            Board = _boardBeforeMove.Clone();
+            Board = boardBeforeMove.Clone();
             Board.ClearSuperposition();
-            var resolvedMove = Board.ResolveMove(_pendingMove);
+            var resolvedMove = Board.ResolveMove(pendingMove);
             Board.MakeMove(resolvedMove);
 
-            if (resolvedMove.ToRow == _pendingToRow && resolvedMove.ToColumn == _pendingToColumn &&
-                _pendingNonContactMoves != null &&
-                _pendingNonContactMoves.Any(m => m.ToRow == resolvedMove.ToRow && m.ToColumn == resolvedMove.ToColumn))
-                Board.CreateSuperposition(resolvedMove, _pendingNonContactMoves, CurrentPlayer);
+            if (resolvedMove.ToRow == pendingToRow && resolvedMove.ToColumn == pendingToColumn &&
+                pendingNonContactMoves != null &&
+                pendingNonContactMoves.Any(m => m.ToRow == resolvedMove.ToRow && m.ToColumn == resolvedMove.ToColumn))
+                Board.CreateSuperposition(resolvedMove, pendingNonContactMoves, CurrentPlayer);
 
             LastMove = resolvedMove;
             IsPendingConfirmation = false;
 
-            // Победитель — тот, кто сейчас ходил (CurrentPlayer ещё не переключен)
             var opponent = CurrentPlayer == PieceColor.White ? PieceColor.Black : PieceColor.White;
             if (Board.IsKingCaptured(opponent))
             {
@@ -126,39 +105,32 @@ namespace SuperpositionChess.Controller
             }
 
             SwitchPlayer();
-            _boardBeforeMove = null;
-            _pendingMove = null;
-            _pendingNonContactMoves = null;
+            boardBeforeMove = null;
+            pendingMove = null;
+            pendingNonContactMoves = null;
             OnGameStateChanged?.Invoke();
         }
 
         public void CancelMove()
         {
-            if (!IsPendingConfirmation || _boardBeforeMove == null) return;
+            if (!IsPendingConfirmation || boardBeforeMove == null) return;
 
-            Board = _boardBeforeMove;
+            Board = boardBeforeMove;
             IsPendingConfirmation = false;
             LastMove = null;
-            _pendingMove = null;
-            _pendingNonContactMoves = null;
-            _boardBeforeMove = null;
-
+            pendingMove = null;
+            pendingNonContactMoves = null;
+            boardBeforeMove = null;
             OnGameStateChanged?.Invoke();
         }
 
-        public List<Move> GetValidMoves(int row, int column)
-        {
-            return Board.GetValidMoves(row, column, CurrentPlayer);
-        }
+        public List<Move> GetValidMoves(int row, int column) =>
+            Board.GetValidMoves(row, column, CurrentPlayer);
 
-        private void SwitchPlayer()
-        {
+        private void SwitchPlayer() =>
             CurrentPlayer = CurrentPlayer == PieceColor.White ? PieceColor.Black : PieceColor.White;
-        }
 
-        public bool TryGetPiece(int row, int column, out Piece? piece)
-        {
-            return Board.TryGetPiece(row, column, out piece);
-        }
+        public bool TryGetPiece(int row, int column, out Piece? piece) =>
+            Board.TryGetPiece(row, column, out piece);
     }
 }

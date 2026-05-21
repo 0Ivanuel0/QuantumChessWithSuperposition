@@ -7,74 +7,55 @@ namespace SuperpositionChess.Network
 {
     public class NetworkGameServer
     {
-        private TcpListener _listener;
-        private TcpClient? _client;
-        private NetworkStream? _stream;
-        private readonly int _port;
-        private readonly string _roomKey;
-
-        private StreamReader? _reader;
-        private StreamWriter? _writer;
+        private TcpListener? listener;
+        private TcpClient? client;
+        private StreamReader? reader;
+        private StreamWriter? writer;
+        private readonly int port;
+        private readonly string roomKey;
 
         public event Action<NetworkMoveData>? OnMoveReceived;
         public event Action? OnClientConnected;
         public event Action<string>? OnError;
 
-        public string RoomKey => _roomKey;
-        public bool IsConnected => _client?.Connected ?? false;
+        public string RoomKey => roomKey;
+        public bool IsConnected => client?.Connected ?? false;
 
         public NetworkGameServer(int port, string roomKey)
         {
-            _port = port;
-            _roomKey = roomKey;
+            this.port = port;
+            this.roomKey = roomKey;
         }
 
         public async Task StartAsync()
         {
-
-            _listener?.Stop();
-            _client?.Close();
-            _stream?.Close();
+            listener?.Stop();
+            client?.Close();
 
             try
             {
-                _listener = new TcpListener(IPAddress.Any, _port);
-
-                _listener.Start();
+                listener = new TcpListener(IPAddress.Any, port);
+                listener.Start();
 
                 while (true)
                 {
-                    var client = await _listener.AcceptTcpClientAsync();
+                    var tcpClient = await listener.AcceptTcpClientAsync();
+                    var stream = tcpClient.GetStream();
+                    reader = new StreamReader(stream, Encoding.UTF8);
+                    writer = new StreamWriter(stream, new UTF8Encoding(false)) { AutoFlush = true };
 
-                    var stream = client.GetStream();
-
-                    _reader = new StreamReader(stream, Encoding.UTF8);
-
-                    _writer = new StreamWriter(stream, new UTF8Encoding(false))
+                    var key = await reader.ReadLineAsync();
+                    if (key != roomKey)
                     {
-                        AutoFlush = true
-                    };
-
-                    string? key = await _reader.ReadLineAsync();
-
-                    if (key != _roomKey)
-                    {
-                        await _writer.WriteLineAsync("WRONG_KEY");
-
-                        client.Close();
-
+                        await writer.WriteLineAsync("WRONG_KEY");
+                        tcpClient.Close();
                         continue;
                     }
 
-                    await _writer.WriteLineAsync("OK");
-
-                    _client = client;
-                    _stream = stream;
-
+                    await writer.WriteLineAsync("OK");
+                    client = tcpClient;
                     OnClientConnected?.Invoke();
-
                     _ = ListenForMoves();
-
                     break;
                 }
             }
@@ -86,17 +67,15 @@ namespace SuperpositionChess.Network
 
         private async Task ListenForMoves()
         {
-            while (_client?.Connected ?? false)
+            while (client?.Connected ?? false)
             {
                 try
                 {
-                    string? line = await _reader!.ReadLineAsync();
-
+                    var line = await reader!.ReadLineAsync();
                     if (string.IsNullOrWhiteSpace(line))
                         break;
 
                     var moveData = JsonSerializer.Deserialize<NetworkMoveData>(line);
-
                     if (moveData != null)
                         OnMoveReceived?.Invoke(moveData);
                 }
@@ -110,7 +89,7 @@ namespace SuperpositionChess.Network
 
         public async Task SendMoveAsync(int fromRow, int fromCol, int toRow, int toCol)
         {
-            if (_writer == null || _client == null || !_client.Connected)
+            if (writer == null || client == null || !client.Connected)
                 return;
 
             var moveData = new NetworkMoveData
@@ -121,16 +100,13 @@ namespace SuperpositionChess.Network
                 ToCol = toCol
             };
 
-            string json = JsonSerializer.Serialize(moveData);
-
-            await _writer.WriteLineAsync(json);
+            await writer.WriteLineAsync(JsonSerializer.Serialize(moveData));
         }
 
         public void Stop()
         {
-            _stream?.Close();
-            _client?.Close();
-            _listener?.Stop();
+            client?.Close();
+            listener?.Stop();
         }
     }
 }

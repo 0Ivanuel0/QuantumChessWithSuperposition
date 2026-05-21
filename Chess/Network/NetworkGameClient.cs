@@ -6,77 +6,59 @@ namespace SuperpositionChess.Network
 {
     public class NetworkGameClient
     {
-        private TcpClient? _client;
-        private NetworkStream? _stream;
-
-        private StreamReader? _reader;
-        private StreamWriter? _writer;
+        private TcpClient? client;
+        private StreamReader? reader;
+        private StreamWriter? writer;
 
         public event Action<NetworkMoveData>? OnMoveReceived;
         public event Action? OnConnected;
         public event Action<string>? OnError;
 
-        public bool IsConnected => _client?.Connected ?? false;
+        public bool IsConnected => client?.Connected ?? false;
 
         public async Task<bool> ConnectAsync(string host, int port, string roomKey)
         {
             try
             {
-                _client = new TcpClient();
+                client = new TcpClient();
+                await client.ConnectAsync(host, port);
 
-                await _client.ConnectAsync(host, port);
+                var stream = client.GetStream();
+                reader = new StreamReader(stream, Encoding.UTF8);
+                writer = new StreamWriter(stream, new UTF8Encoding(false)) { AutoFlush = true };
 
-                _stream = _client.GetStream();
+                await writer.WriteLineAsync(roomKey);
 
-                _reader = new StreamReader(_stream, Encoding.UTF8);
-
-                _writer = new StreamWriter(_stream, new UTF8Encoding(false))
-                {
-                    AutoFlush = true
-                };
-
-                // Отправляем ключ
-                await _writer.WriteLineAsync(roomKey);
-
-                // Получаем ответ
-                string? response = await _reader.ReadLineAsync();
-
+                var response = await reader.ReadLineAsync();
                 if (response != "OK")
                 {
-                    _client.Close();
-
+                    client.Close();
                     OnError?.Invoke("Неверный ключ комнаты!");
-
                     return false;
                 }
 
                 OnConnected?.Invoke();
-
                 _ = ListenForMoves();
-
                 return true;
             }
             catch (Exception ex)
             {
                 OnError?.Invoke($"Ошибка подключения: {ex.Message}");
-
                 return false;
             }
         }
 
         private async Task ListenForMoves()
         {
-            while (_client?.Connected ?? false)
+            while (client?.Connected ?? false)
             {
                 try
                 {
-                    string? line = await _reader!.ReadLineAsync();
-
+                    var line = await reader!.ReadLineAsync();
                     if (string.IsNullOrWhiteSpace(line))
                         break;
 
                     var moveData = JsonSerializer.Deserialize<NetworkMoveData>(line);
-
                     if (moveData != null)
                         OnMoveReceived?.Invoke(moveData);
                 }
@@ -90,7 +72,7 @@ namespace SuperpositionChess.Network
 
         public async Task SendMoveAsync(int fromRow, int fromCol, int toRow, int toCol)
         {
-            if (_writer == null || _client == null || !_client.Connected)
+            if (writer == null || client == null || !client.Connected)
                 return;
 
             var moveData = new NetworkMoveData
@@ -101,15 +83,13 @@ namespace SuperpositionChess.Network
                 ToCol = toCol
             };
 
-            string json = JsonSerializer.Serialize(moveData);
-
-            await _writer.WriteLineAsync(json);
+            await writer.WriteLineAsync(JsonSerializer.Serialize(moveData));
         }
 
         public void Disconnect()
         {
-            _stream?.Close();
-            _client?.Close();
+            client?.Close();
+            client = null;
         }
     }
 }

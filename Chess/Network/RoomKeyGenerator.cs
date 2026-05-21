@@ -2,12 +2,12 @@
 {
     public static class RoomKeyGenerator
     {
-        private static readonly Random _random = new();
+        private static readonly Random random = new();
 
         public static string GenerateKey()
         {
             // 6-значный цифровой код
-            return _random.Next(100000, 999999).ToString();
+            return random.Next(100000, 999999).ToString();
         }
     }
 }
